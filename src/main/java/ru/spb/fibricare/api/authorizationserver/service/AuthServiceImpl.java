@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import ru.spb.fibricare.api.authorizationserver.dto.RefreshDto;
+import ru.spb.fibricare.api.authorizationserver.dto.RoleDto;
 import ru.spb.fibricare.api.authorizationserver.dto.TokenDto;
 import ru.spb.fibricare.api.authorizationserver.dto.UserDto;
 import ru.spb.fibricare.api.authorizationserver.model.User;
@@ -40,7 +41,15 @@ public class AuthServiceImpl implements AuthService {
 
         String accessToken = jwtUtility.generateAccessToken(user);
 
-        return new RefreshDto(new TokenDto("access", accessToken), user.getId());
+        var result = new RefreshDto();
+        result.setToken(new TokenDto("access", accessToken));
+        result.setUserId(user.getId());
+        result.setRoles(user.getRoles().stream()
+            .map(r -> new RoleDto(r.getName()))
+            .toList()
+        );
+
+        return result;
     }
 
     @Override
