@@ -1,72 +1,65 @@
-package ru.spb.fibricare.api.authorizationserver.security;
+package ru.spb.fibricare.api.authorizationserver.security.jwt;
 
+import java.security.Key;
 import java.util.Date;
 import java.util.stream.Collectors;
 
 import javax.crypto.SecretKey;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
-import io.jsonwebtoken.io.Encoders;
-import io.jsonwebtoken.security.Keys;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import ru.spb.fibricare.api.authorizationserver.model.Role;
 import ru.spb.fibricare.api.authorizationserver.model.User;
 
 @Component
+@RequiredArgsConstructor
 public class JwtUtility {
-    private final SecretKey accessKey;
-    private final SecretKey refreshKey;
+    private final JwtKeyStore keyStore;
 
-    @Value("${app.config.security.accessLifespawnSec}")
+    @Value("${app.config.accessLifespawnSec}")
     @Setter
     private Integer accesLifespawn;
-    @Value("${app.config.security.refreshLifespawnSec}")
+    @Value("${app.config.refreshLifespawnSec}")
     @Setter
     @Getter
     private Integer refreshLifespawn;
 
-    public JwtUtility(@Value("${app.config.security.accessSecret}") String base64AccessKey,
-            @Value("${app.config.security.refreshSecret}") String base64RefreshKey) {
-        this.accessKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(base64AccessKey));
-        this.refreshKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(base64RefreshKey));
+    public Key getAccessPublicKey() {
+        return keyStore.getAccessPublicKey();
     }
 
-    public String getAccessKey() {
-        return Encoders.BASE64.encode(accessKey.getEncoded());
+    public Integer getRefreshTokenLifespawn() {
+        return refreshLifespawn;
     }
 
-    public String generateRefreshToken(UserDetails userDetails) {
-        return generateToken(userDetails, refreshKey, refreshLifespawn);
+    public String generateRefreshToken(User userDetails) {
+        return generateToken(userDetails, keyStore.getRefreshKey(), refreshLifespawn);
     }
 
-    public String generateAccessToken(UserDetails userDetails) {
-        return generateToken(userDetails, accessKey, accesLifespawn);
+    public String generateAccessToken(User userDetails) {
+        return generateToken(userDetails, keyStore.getAccessPrivateKey(), accesLifespawn);
     }
 
-    public UserDetails parseAndValidateRefreshToken(String refreshToken) throws ExpiredJwtException, JwtException {
-        return generateUserDetails(refreshToken, refreshKey);
+    public User parseAndValidateRefreshToken(String refreshToken) throws ExpiredJwtException, JwtException {
+        return generateUserDetails(refreshToken, keyStore.getRefreshKey());
     }
 
-    public UserDetails parseAndValidateAccessToken(String accessToken) throws ExpiredJwtException, JwtException {
-        return generateUserDetails(accessToken, accessKey);
-    }
-
-    private UserDetails generateUserDetails(String token, SecretKey key) throws ExpiredJwtException, JwtException {
+    private User generateUserDetails(String token, SecretKey key) throws ExpiredJwtException, JwtException {
         Claims claims = parseToken(token, key);
 
         areClaimsValid(claims);
 
         User user = new User();
-        user.setId(Long.parseLong(claims.getSubject()));
+        user.setId(Long.parseLong(claims.get("userId").toString()));
+        user.setLogin(claims.getSubject());
         user.setRoles(claims
             .getAudience()
             .stream()
@@ -81,15 +74,16 @@ public class JwtUtility {
         return user;
     }
 
-    private String generateToken(UserDetails userDetails, SecretKey key, Integer lifespawn) {
+    private String generateToken(User user, Key key, Integer lifespawn) {
         Date now = new Date();
 
         return Jwts.builder()
             .issuedAt(now)
             .expiration(new Date(now.getTime() + lifespawn * 1000))
-            .subject(userDetails.getUsername())
+            .subject(user.getUsername())
+            .claim("userId", user.getId())
             .audience()
-            .add(userDetails.getAuthorities()
+            .add(user.getAuthorities()
                 .stream()
                 .map(a -> a.getAuthority())
                 .collect(Collectors.toSet()))

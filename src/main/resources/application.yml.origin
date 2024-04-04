@@ -1,3 +1,5 @@
+server:
+  port: 8081
 spring:
   application:
     name: authorization-server
@@ -5,3 +7,9 @@ spring:
     url: 
     username: 
     password: 
+app:
+  config:
+    keyfile: 
+    clientUrl: 
+    refreshLifespawn: 
+    accessLifespawn: 

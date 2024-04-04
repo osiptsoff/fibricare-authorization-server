@@ -5,12 +5,9 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
-import org.springframework.security.authentication.AuthenticationProvider;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -22,12 +19,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 @Configuration
+@EnableWebSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-    private final UserDetailsService userDetailsService;
-
     @Setter
-    @Value("${app.config.security.clientUrl}")
+    @Value("${app.config.clientUrl}")
     private String clientUrl;
 
     @Bean
@@ -49,16 +45,6 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
-
-        authenticationProvider.setUserDetailsService(userDetailsService);
-        authenticationProvider.setPasswordEncoder(passwordEncoder());
-
-        return authenticationProvider;
-    }
-
-    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
             .httpBasic(h -> h.disable())
@@ -67,11 +53,7 @@ public class SecurityConfig {
             .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .formLogin(f -> f.disable())
             .authorizeHttpRequests(auth -> {
-                auth.requestMatchers("/error").permitAll();
-                auth.requestMatchers(HttpMethod.GET, "/**").permitAll();
-                auth.requestMatchers(HttpMethod.POST, "/auth/**").permitAll();
-                auth.requestMatchers(HttpMethod.POST, "/participation/**").hasAuthority("user");
-                auth.requestMatchers("/**").hasAuthority("admin");
+                auth.anyRequest().permitAll();
             })
             .build();
     }

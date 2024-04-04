@@ -26,7 +26,7 @@ import lombok.NoArgsConstructor;
 @Table(schema = "person", name = "user")
 public class User implements UserDetails {
     @Id
-    @Column(name = "id")
+    @Column(name = "user_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     protected Long id;
     @Column(name = "login")
